@@ -1,4 +1,5 @@
 import time
+import re
 
 class DirectoryNode:
     def __init__(self, name, size = 0, is_leaf = False):
@@ -38,6 +39,29 @@ class Directory:
                     temp = self.find_file(child, child_name, path + '/' + root.name)
                     if temp:
                         return temp
+
+
+    def find_wildcard(self, parent, search_term, total_files, path =""):
+        if parent.is_leaf: #Ensures Leafs only appear once in total_files
+            result = self.match_terms(parent, search_term)
+            if result is True:
+                return total_files.append(f"{path + "/" + parent.name}")
+            return
+        path = path + "/" + parent.name
+        for child in parent.children:
+            self.find_wildcard(child, search_term, total_files, path)
+        return total_files
+
+
+    def match_terms(self, child_name, search_term):
+        try:
+            reg_search_term = search_term.replace('*', '.*').replace('?', '.').replace('!', '^').replace('#', '\\d+')
+            pattern = re.compile(reg_search_term)
+            match = re.match(pattern, child_name.name)
+            
+            return bool(match)
+        except re.PatternError: #Stops crash when invalid search syntax is entered
+            return "Error"
     
     def find_size(self, root, folder_name = None):
         if root:
@@ -83,26 +107,45 @@ if __name__ == "__main__":
     print("Welcome to the Root Directory!",
           "\nYou can select from a handful",
           "\nof queries to withdraw data and",
-          "\nstatistics from the directory.")
+          "\nstatistics from the directory.",)
     
-    query = input("Please select: Find file: 'FileName', Folder size: 'FolderName', Shortest Path: 'FileName'\nFind all: 'Type' (Folder, File, .txt, .pdf), Find files: '(>, <, ==)' 'Size': ").split(':')
-    
-    while len(query) < 2:
-        query = input("You must provide a query formatted as such: 'Find file: File3.txt': ")
+
+    while True:
+        query = input("\n\tFind file: 'FileName' \n\tFolder size: 'FolderName' \n\tShortest Path: 'FileName' \n\tFind all: 'Type' (Folder, File, .txt, .pdf) \n\tFind files: '(>, <, ==)' 'Size': \n\tWildcard Search: To quit q:\n\nEnter Choice: ").split(':')
         
-    query = [x.strip() for x in query]
-        
-    if query[0].lower() == "find file":
-        print(f"Finding {query[1]} in Root...")
-        start_time = time.time()
-        print(f"Path: {files.find_file(root, query[1])}")
-        end_time = time.time()
-        print(f"Elapsed time: {end_time - start_time}")
-        
-    elif query[0].lower() == "folder size":
-        print(f"Calculating {query[1]} size...")
-        start_time = time.time()
-        print(f"Total size: {files.find_size(root, query[1])}mb")
-        end_time = time.time()
-        print(f"Elapsed time: {end_time - start_time}")
-        
+        while len(query) < 2:
+            query = input("You must provide a query formatted as such: 'Find file: File3.txt': ").split(':')
+            
+        query = [x.strip() for x in query]
+            
+        if query[0].lower() == "find file":
+            print(f"Finding {query[1]} in Root...")
+            start_time = time.time()
+            print(f"Path: {files.find_file(root, query[1])}")
+            end_time = time.time()
+            print(f"Elapsed time: {end_time - start_time}")
+            
+        elif query[0].lower() == "folder size":
+            print(f"Calculating {query[1]} size...")
+            start_time = time.time()
+            print(f"Total size: {files.find_size(root, query[1])}mb")
+            end_time = time.time()
+            print(f"Elapsed time: {end_time - start_time}")
+            
+        elif query[0].lower() == "wildcard search":
+            found_files = None
+            print(f"Finding files containing {query[1]}")
+            start_time = time.time()
+            found_files = files.find_wildcard(root, query[1], [])
+            print(f"Files containing {[None if found_files is None else len(found_files)]}")
+            if found_files is not None:
+                for i in found_files:
+                    print(i)
+            end_time = time.time()
+            print(f"Elapsed time: {end_time - start_time}")
+
+        elif query[0].lower() == "q":
+            print("Thank you! Goodbye.")
+            break
+
+
