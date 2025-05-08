@@ -6,39 +6,39 @@ class DirectoryNode:
         self.name = name
         self.size = size
         self.is_leaf = is_leaf
+        self._cached_total_size = None
         if not is_leaf:
             self.children = []
 
     def add_child(self, child):
         self.children.append(child)
+        self._cached_total_size = None
 
     def remove_child(self, child):
         self.children.remove(child)
+        self._cached_total_size = None
 
 class Directory:
     def __init__(self, root):
         self.root = root
         
-    def insert_child(self, root, path, child_node):
-        if root:
-            if root.name == path:
-                root.add_child(child_node)
-            else:
-                if not root.is_leaf:
-                    for child in root.children:
-                        #check that child.name is next in path
-                        if child.name == path[len(root.name)+1:len(root.name)+1 + len(child.name)]:
-                            self.insert_child(child, path[len(root.name)+1:], child_node)
+    def insert_child(self, node, path, child_node):
+        parts = path.strip('/').split('/')
+        for part in parts[1:]:  # Skip the root, already passed in
+            node = next((c for c in node.children if c.name == part and not c.is_leaf), None)
+            if node is None:
+                return  # Path invalid, optionally raise an error
+        node.add_child(child_node)
     
-    def find_file(self, root, child_name, path = ""):
-        if root:
-            if root.name == child_name:
-                return path[1:] + '/' + child_name #path[1:] removes extra '/' from recursive call
-            elif not root.is_leaf:
-                for child in root.children:
-                    temp = self.find_file(child, child_name, path + '/' + root.name)
-                    if temp:
-                        return temp
+    def find_file(self, root, child_name, path=""):
+        if root.name == child_name:
+            return (path + '/' + root.name).lstrip('/')
+        if not root.is_leaf:
+            for child in root.children:
+                result = self.find_file(child, child_name, path + '/' + root.name)
+                if result:
+                    return result
+        return None
 
 
     def find_wildcard(self, parent, search_term, total_files, path =""):
@@ -63,23 +63,23 @@ class Directory:
         except re.PatternError: #Stops crash when invalid search syntax is entered
             return "Error"
     
-    def find_size(self, root, folder_name = None):
-        if root:
-            if root.name == folder_name:
-                return self.add_sizes(root)
-            elif not root.is_leaf:
-                for child in root.children:
-                    temp = self.find_size(child, folder_name)
-                    if temp:
-                        return temp
-    
-    def add_sizes(self, root, size = 0):
+    def find_size(self, root, folder_name=None):
+        if root.name == folder_name:
+            return self._cached_or_sum(root)
         if not root.is_leaf:
             for child in root.children:
-                size += self.add_sizes(child)
+                result = self.find_size(child, folder_name)
+                if result is not None:
+                    return result
+
+    def _cached_or_sum(self, node):
+        if node._cached_total_size is not None:
+            return node._cached_total_size
+        if node.is_leaf:
+            node._cached_total_size = node.size
         else:
-            size = root.size
-        return size
+            node._cached_total_size = sum(self._cached_or_sum(child) for child in node.children)
+        return node._cached_total_size
     
     def traverse_preorder(self, node):
         if node:
