@@ -1,5 +1,6 @@
 import time
 import re
+from typing import Self
 
 
 class DirectoryNode:
@@ -80,6 +81,27 @@ class Directory:
                 self.find_type(child, type, total_files, f"{path}/{parent.name}")
         return total_files
 
+    def find_duplicates(self, parent, names_seen=None, duplicates=None, path=""):
+        if names_seen is None:
+            names_seen = set()
+        if duplicates is None:
+            duplicates = []
+
+        current_path = f"{path}/{parent.name}".lstrip("/")
+
+        if parent.name in names_seen:
+            if parent.is_leaf:
+                duplicates.append(current_path)
+                print(f"Duplicate file found: {current_path}")
+                print("Recommendation: Consider deleting this file to save space.")
+        else:
+            names_seen.add(parent.name)
+
+        if not parent.is_leaf:
+            for child in parent.children:
+                self.find_duplicates(child, names_seen, duplicates, current_path)
+        return duplicates
+
     def find_size(self, root, folder_name=None):
         if root.name == folder_name:
             return self._cached_or_sum(root)
@@ -120,6 +142,9 @@ if __name__ == "__main__":
         root, "Root/Folder1", DirectoryNode(name="File1.txt", size=10, is_leaf=True)
     )
     files.insert_child(
+        root, "Root/Folder1", DirectoryNode(name="File1.txt", size=10, is_leaf=True)
+    )
+    files.insert_child(
         root, "Root/Folder1", DirectoryNode(name="File2.txt", size=5, is_leaf=True)
     )
     files.insert_child(
@@ -149,7 +174,7 @@ if __name__ == "__main__":
 
     while True:
         query = input(
-            "\n\tFind file: 'FileName' \n\tFolder size: 'FolderName' \n\tShortest Path: 'FileName' \n\tFind all: 'Type' (Folder, File, .txt, .pdf) \n\tFind files: '(>, <, ==)' 'Size': \n\tWildcard Search: To quit q:\n\nEnter Choice: "
+            "\n\tFind file: 'FileName' \n\tFolder size: 'FolderName' \n\tShortest Path: 'FileName' \n\tFind all: 'Type' (Folder, File, .txt, .pdf) \n\tFind files: '(>, <, ==)' 'Size': \n\tWildcard Search: \n\t Duplicates: (searches the whole system) \n\tTo quit q:\n\nEnter Choice: "
         ).split(":")
 
         while len(query) < 2:
@@ -199,6 +224,9 @@ if __name__ == "__main__":
                     print(i)
             end_time = time.time()
             print(f"Elapsed time: {end_time - start_time}")
+
+        elif query[0].lower() == "duplicates":
+            print(files.find_duplicates(root))
 
         elif query[0].lower() == "q":
             print("Thank you! Goodbye.")
